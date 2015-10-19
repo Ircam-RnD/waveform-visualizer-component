@@ -1,0 +1,159 @@
+<template id="template">
+
+  <style>
+  .audio-container {
+    background-color: rgb(18, 18, 18);
+    height: 30px;
+  }
+
+  .axis-container, .graph-container {
+    background-color: #ffffff;
+  }
+  </style>
+
+  <div class="audio-container">
+    <audio class="audio" controls="controls"></audio>
+  </div>
+  <div class="axis-container"></div>
+  <div class="graph-container"></div>
+
+</template>
+
+<!-- load libraries -->
+<script src="./lib/waves-ui.umd.js"></script>
+<script src="./lib/waves-loaders.umd.js"></script>
+
+<script>
+(function(window, document) {
+  'use strict';
+
+  var segmentData = [
+    { x: 0.2, width: 0.7 },
+    { x: 1.2, width: 1.4 },
+  ];
+
+  var defaults = {
+    waveformColor: '#586e75',
+    segmentsColor: 'rgb(203, 75, 22)'
+  };
+
+  // Refers to the "importer", which is index.html
+  var thatDoc = document;
+  // Refers to the "importee", which is src/hello-world.html
+  var thisDoc =  (thatDoc._currentScript || thatDoc.currentScript).ownerDocument;
+
+  var $template = thisDoc.querySelector('#template');
+  var shadowHost, shadowRoot;
+  // data attributes
+  var audioSrc, dataSrc;
+  var width, height, $timeline, $audio;
+
+  // HTMLElement prototype
+  var proto = Object.create(HTMLDivElement.prototype);
+  // // lifecycle
+  proto.createdCallback = function() {
+    shadowHost = this;
+    shadowRoot = this.createShadowRoot();
+    shadowHost.style.display = 'block';
+
+    var $clone = document.importNode($template.content, true);
+    shadowRoot.appendChild($clone);
+
+    audioSrc = shadowHost.getAttribute('data-sound-file');
+    dataSrc = shadowHost.getAttribute('data-annotations');
+
+    var toLoad = dataSrc ? [audioSrc, dataSrc] : [audioSrc];
+
+    (function(shadowHost, shadowRoot) {
+      var loader = new wavesLoaders.SuperLoader();
+      loader
+        .load(toLoad)
+        .then(function(loaded) {
+            initialize(loaded, shadowHost, shadowRoot);
+        }).catch(function(err) {
+          console.error(err.stack);
+        });
+    }(shadowHost, shadowRoot));
+  }
+
+  proto.attachedCallback = function() {}
+  proto.detachedCallback = function() {}
+  proto.attributeChangedCallback = function() {}
+
+  function initialize(loaded, shadowHost, shadowRoot) {
+    var buffer = loaded[0];
+    var segmentData = loaded[1];
+
+    width = shadowHost.getBoundingClientRect().width;
+    height = shadowHost.getBoundingClientRect().height;
+    // set audio source
+    var $audio = shadowRoot.querySelector('.audio');
+    $audio.setAttribute('src', audioSrc);
+    // create timeline
+    var audioHeight = 30;
+    var axisHeight = 16;
+    var waveformHeight = height - axisHeight - audioHeight;
+    var duration = buffer.duration;
+
+    var $axis  = shadowRoot.querySelector('.axis-container');
+    var $graph = shadowRoot.querySelector('.graph-container');
+
+    var timeline = new wavesUI.core.Timeline(width / duration, width);
+    timeline.createTrack($axis, axisHeight, 'axis');
+    timeline.createTrack($graph, waveformHeight, 'graph');
+
+    // axis
+    var axis = new wavesUI.helpers.TimeAxisLayer({ height: axisHeight });
+    timeline.addLayer(axis, 'axis', 'default', true);
+
+    // waveform
+    var waveform = new wavesUI.helpers.WaveformLayer(buffer, {
+      height: waveformHeight,
+      color: defaults.waveformColor,
+    });
+
+    if (segmentData) {
+      var segments = new wavesUI.helpers.SegmentLayer(segmentData, {
+        height: waveformHeight,
+        displayHandlers: false,
+      }, {
+        x: function(d) { return d.start; },
+        width: function(d) { return d.duration; },
+        color: function(d) { return d.color || 'gray'; }
+      });
+    }
+
+    var cursor = new wavesUI.helpers.CursorLayer({ height: waveformHeight });
+
+    timeline.addLayer(waveform, 'graph');
+    if (segments) { timeline.addLayer(segments, 'graph'); }
+    timeline.addLayer(cursor, 'graph');
+
+    // handle states
+    var simpleEditionState = new wavesUI.states.SimpleEditionState(timeline);
+    var centeredZoomState = new wavesUI.states.CenteredZoomState(timeline);
+
+    $axis.addEventListener('mousedown', function(e) {
+      timeline.state = centeredZoomState;
+    }, true);
+
+    $graph.addEventListener('mousedown', function(e) {
+      timeline.state = simpleEditionState;
+    }, true);
+
+    // update cursor
+    (function loop() {
+      cursor.currentPosition = $audio.currentTime;
+      cursor.updateShapes();
+      requestAnimationFrame(loop);
+    }());
+
+    $audio.addEventListener('ended', function() { $audio.currentTime = 0; });
+  }
+
+  // expose for scripting use
+  var WavesWaveform = thatDoc.registerElement('waves-waveform', {
+    prototype: proto
+  });
+}(window, document));
+</script>

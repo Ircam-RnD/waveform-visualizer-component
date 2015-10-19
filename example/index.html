@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>wavesjs - WebComponent Waveform</title>
+
+  <style>
+  html, body {
+    background-color: #efefef;
+    height: 100%;
+  }
+
+  body {
+    padding-top: 80px;
+  }
+
+
+  code, h2 {
+    display: block;
+    width: 800px;
+    margin: 30px auto 20px;
+  }
+
+  h2 {
+    font-family: monospace;
+  }
+
+  waves-waveform {
+    width: 800px;
+    height: 120px;
+    margin: 0 auto;
+    position: relative;
+  }
+  </style>
+
+  <script src="../lib/webcomponents.min.js"></script>
+  <link rel="import" href="../waveform-visualizer.html" />
+</head>
+<body>
+  <h2>WebComponent - waveform visualizer</h2>
+  <code>without annotations</code>
+  <waves-waveform data-sound-file="../data/drum-loop.wav"></waves-waveform>
+
+  <code>with annotations</code>
+  <waves-waveform data-sound-file="../data/drum-loop.wav" data-annotations="../data/annotations.json"></waves-waveform>
+</body>
+</html>
